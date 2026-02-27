@@ -1,5 +1,9 @@
 // 后端爬虫服务 - 通过环境变量 SOURCE_BASE 指定数据源站点
+const dotenv = require('dotenv');
+dotenv.config({ path: '.env.example' });
+
 const express = require('express');
+const morgan = require('morgan');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const cors = require('cors');
@@ -13,6 +17,9 @@ const SOURCE_BASE = process.env.SOURCE_BASE;
 if (!SOURCE_BASE) {
   console.warn('[WARNING] 环境变量 SOURCE_BASE 未设置，后端爬虫接口将无法正常工作。');
 }
+
+// 日志
+app.use(morgan(process.env.NODE_ENV === 'development' ? 'combined' : 'common'));
 
 // 统一的返回包装
 function wrap(code, data, msg = '') {
@@ -248,17 +255,32 @@ app.get('/api/proxy', async (req, res) => {
  */
 app.get('/api/getIndex', async (req, res) => {
   try {
-    const r = await axios.get(SOURCE_BASE);
-    const $ = cheerio.load(r.data);
-    const banner = [];
-    $('.focus-banner li').each((i, el) => {
-      const cover = $(el).find('img').attr('src');
-      const link = $(el).find('a').attr('href');
-      const idMatch = link ? link.match(/id\/(\d+)/) : null;
-      banner.push({ cover, id: idMatch ? idMatch[1] : '', title: $(el).find('img').attr('alt') || '' });
-    });
-    // 其他列表类似
-    res.json(wrap(200, { banner, chinese_comic: [], hots: { results: [] }, japancomic: [], latest: [], perweek: {}, theatre_comic: [] }));
+    const resp = await axios.get(SOURCE_BASE);
+    const $resp = cheerio.load(resp.data);
+
+    /* 轮播 */
+    const slideData = [];
+    const $swiperBig = $resp(".swiper-big");
+    const $swiperWrapper = $swiperBig.find(".swiper-wrapper");
+    $swiperWrapper.find(".swiper-slide").each((index, el) => {
+      const $slideItem = $swiperWrapper.find(el);
+      slideData.push({
+        cover: $slideItem.find("a").attr("style").split("(")[1].split(")")[0],
+        id: $slideItem.find("a").attr("href").match(/id\/(\d+)\.html/)[1],
+        title: $slideItem.find("span").text().trim()
+      })
+    })
+
+    /* 热门 */
+
+    res.json(
+      wrap(
+        200, "success",
+        {
+          banner: slideData
+        }
+      )
+    )
   } catch (e) {
     console.error(e);
     res.json(wrap(500, null, 'getIndex failed'));

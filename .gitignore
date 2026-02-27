@@ -9,3 +9,4 @@ stats.html
 .env
 .env.local
 .env.*.local
+.env.example
