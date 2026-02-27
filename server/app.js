@@ -22,7 +22,7 @@ if (!SOURCE_BASE) {
 app.use(morgan(process.env.NODE_ENV === 'development' ? 'combined' : 'common'));
 
 // 统一的返回包装
-function wrap(code, data, msg = '') {
+function wrap(code, msg, data) {
   return {
     code,
     message: msg,
