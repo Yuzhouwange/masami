@@ -255,12 +255,16 @@ app.get('/api/proxy', async (req, res) => {
  */
 app.get('/api/getIndex', async (req, res) => {
   try {
-    const resp = await axios.get(SOURCE_BASE);
-    const $resp = cheerio.load(resp.data);
+    const [slideResp, hotResp] = await Promise.all([
+      axios.get(SOURCE_BASE),
+      axios.get(`${SOURCE_BASE}/index.php/label/hot.html`)
+    ])
+    const $slideResp = cheerio.load(slideResp.data);
+    const $hotResp = cheerio.load(hotResp.data);
 
     /* 轮播 */
     const slideData = [];
-    const $swiperBig = $resp(".swiper-big");
+    const $swiperBig = $slideResp(".swiper-big");
     const $swiperWrapper = $swiperBig.find(".swiper-wrapper");
     $swiperWrapper.find(".swiper-slide").each((index, el) => {
       const $slideItem = $swiperWrapper.find(el);
@@ -272,12 +276,27 @@ app.get('/api/getIndex', async (req, res) => {
     })
 
     /* 热门 */
+    const hotData = [];
+    const $hotItems = $hotResp("div.module-main.tab-list.active");
+    $hotItems.find("div.module-card-item").each((index, el) => {
+      const $hotItem = $hotItems.find(el);
+      hotData.push({
+        cover: $hotItem.find("div.module-item-pic img").attr("data-original"),
+        id: $hotItem.find("a").attr("href").match(/id\/(\d+)\.html/)[1],
+        season: $hotItem.find("a div.module-item-note").text(),
+        title: $hotItem.find("div.module-card-item-title a strong").text(),
+        date: $hotItem.find("div.module-info-item-content").text().trim()
+      })
+    })
 
     res.json(
       wrap(
         200, "success",
         {
-          banner: slideData
+          banner: slideData,
+          hot: {
+            results: hotData
+          }
         }
       )
     )
